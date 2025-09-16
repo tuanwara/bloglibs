@@ -1272,8 +1272,6 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         console.log('🚀 DOM loaded, initializing real Firebase dashboard...');
         
-        initializeSidebar();
-
         // Wait for Firebase to be ready
         const checkFirebase = () => {
             if (window.isFirebaseReady) {
@@ -1435,3 +1433,4 @@ console.log('✅ Real Firebase Admin Dashboard Script loaded successfully!');
 console.log('🎯 Version: 2.0.0 | Production Ready | No Demo Data');
 
 console.log('🔥 100% Firebase Integration | Real-time Updates Enabled');
+
