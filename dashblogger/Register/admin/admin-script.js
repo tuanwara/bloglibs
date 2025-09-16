@@ -42,57 +42,75 @@ let analyticsListener = null;
 let contentListener = null;
 
 // ===== AUTHENTICATION CHECK =====
-window.firebaseAuth.onAuthStateChanged(async (user) => {
-    console.log('🔐 Auth state changed:', user ? 'Authenticated' : 'Not authenticated');
-    
-    if (user) {
-        try {
-            // Check if user is admin
-            const userRef = window.firebaseDB.ref(`users/${user.uid}`);
-            const userSnapshot = await userRef.once('value');
-            const userData = userSnapshot.val();
-            
-            if (!userData) {
-                // Create admin profile if doesn't exist
-                const adminData = {
-                    uid: user.uid,
-                    email: user.email,
-                    displayName: user.displayName || 'Admin User',
-                    role: 'admin',
-                    createdAt: Date.now(),
-                    lastLogin: Date.now(),
-                    isAdmin: true
-                };
-                
-                await userRef.set(adminData);
-                currentAdmin = user;
-                await loadAdminData(adminData);
-            } else if (userData.role === 'admin' || userData.isAdmin) {
-                // Update last login
-                await userRef.update({ lastLogin: Date.now() });
-                currentAdmin = user;
-                await loadAdminData(userData);
-            } else {
-                showAlert('Access denied. Admin privileges required.', 'error');
-                setTimeout(() => {
-                    window.location.href = '/p/login.html';
-                }, 2000);
-                return;
-            }
-            
-            // Load dashboard data
-            await loadDashboardData();
-            
-        } catch (error) {
-            console.error('❌ Auth error:', error);
-            showAlert('Authentication failed: ' + error.message, 'error');
-        }
-    } else {
-        // Redirect to login
-        console.log('🔄 No authenticated user, redirecting to login...');
-        window.location.href = '/p/login.html';
+function initializeAuth() {
+    // Check if Firebase Auth is available
+    if (!window.firebaseAuth) {
+        console.error('❌ Firebase Auth not available');
+        showAlert('Firebase authentication not loaded. Please refresh the page.', 'error');
+        return;
     }
-});
+
+    // Setup authentication state listener
+    window.firebaseAuth.onAuthStateChanged(async (user) => {
+        try {
+            console.log('🔐 Auth state changed:', user ? 'Authenticated' : 'Not authenticated');
+            
+            if (user) {
+                currentAdmin = user;
+                
+                // Check if user is admin
+                if (!window.firebaseDB) {
+                    console.error('❌ Firebase Database not available');
+                    showAlert('Database connection failed. Please refresh the page.', 'error');
+                    return;
+                }
+                
+                const userRef = window.firebaseDB.ref(`users/${user.uid}`);
+                const userSnapshot = await userRef.once('value');
+                const userData = userSnapshot.val();
+                
+                if (!userData) {
+                    // Create admin profile if doesn't exist
+                    const adminData = {
+                        uid: user.uid,
+                        email: user.email,
+                        displayName: user.displayName || 'Admin User',
+                        role: 'admin',
+                        createdAt: Date.now(),
+                        lastLogin: Date.now(),
+                        isAdmin: true
+                    };
+                    
+                    await userRef.set(adminData);
+                    currentAdmin = user;
+                    await loadAdminData(adminData);
+                } else if (userData.role === 'admin' || userData.isAdmin) {
+                    // Update last login
+                    await userRef.update({ lastLogin: Date.now() });
+                    currentAdmin = user;
+                    await loadAdminData(userData);
+                } else {
+                    showAlert('Access denied. Admin privileges required.', 'error');
+                    setTimeout(() => {
+                        window.location.href = '/p/login.html';
+                    }, 2000);
+                    return;
+                }
+                
+                // Load dashboard data
+                await loadDashboardData();
+                
+            } else {
+                // Redirect to login
+                console.log('🔄 No authenticated user, redirecting to login...');
+                window.location.href = '/p/login.html';
+            }
+        } catch (error) {
+            console.error('❌ Auth state change error:', error);
+            showAlert('Authentication error: ' + error.message, 'error');
+        }
+    });
+}
 
 // ===== LOAD ADMIN DATA =====
 async function loadAdminData(userData) {
@@ -1256,6 +1274,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         initializeSidebar();
 
+        // Wait for Firebase to be ready
+        const checkFirebase = () => {
+            if (window.isFirebaseReady) {
+                console.log('✅ Firebase is ready, initializing admin dashboard...');
+                initializeAuth();
+                initializeSidebar();
+                setupEventListeners();
+            } else {
+                console.log('⏳ Waiting for Firebase to load...');
+                setTimeout(checkFirebase, 100);
+            }
+        };
+        
+        checkFirebase();
+
         if (window.innerWidth <= 1024) {
             const mobileToggle = document.getElementById('mobileToggle');
             if (mobileToggle) {
@@ -1400,4 +1433,5 @@ window.addEventListener('beforeunload', () => {
 
 console.log('✅ Real Firebase Admin Dashboard Script loaded successfully!');
 console.log('🎯 Version: 2.0.0 | Production Ready | No Demo Data');
+
 console.log('🔥 100% Firebase Integration | Real-time Updates Enabled');
